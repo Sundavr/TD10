@@ -21,7 +21,9 @@ function onlyUnique(value, index, self) {
 }
 
 var listSpecialites = []
+var listQuartiers = []
 MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
+    console.log("loading ressources from the base ...")
     if (!err) {
         let db = client.db('base')
         let restos = db.collection('restos')
@@ -33,29 +35,18 @@ MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
                                 .filter(onlyUnique)
                                 .filter(spec => reg.test(spec))
                                 .sort()
-            client.close()
+            restos.distinct('borough').then(v => {
+                listQuartiers = v
+                client.close()
+                app.listen(port, (err) => {
+                    if (!err) console.log('server is running on port', port)
+                    else console.log(err)
+                })
+            })
         })
     } else {
         console.log(err)
     }
-})
-
-
-var listQuartiers = []
-MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
-    if (!err) {
-        let db = client.db('base')
-        let restos = db.collection('restos')
-        restos.distinct('borough').then(v => {
-            listQuartiers = v
-            client.close()
-        })
-    }
-})
-
-app.listen(port, (err) => {
-    if (!err) console.log('server is running on port', port)
-    else console.log(err)
 })
 
 app.all('/:var(index.html)?', (req,res) => {
