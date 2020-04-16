@@ -2,8 +2,9 @@ const express = require('express')
 const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
 const app = express();
-const port = 5000
-const mongoURI = "mongodb://127.0.0.1:8081"
+const port = process.env.PORT || 5000
+//const mongoURI = "mongodb://127.0.0.1:8081" //en local
+const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
 const distanceMax = 500 //distance maximale par défaut pour chercher un restaurant
 let publicDir = __dirname + '/public' // rep contenant les fichiers
 
@@ -34,6 +35,8 @@ MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
                                 .sort()
             client.close()
         })
+    } else {
+        console.log(err)
     }
 })
 
@@ -76,8 +79,8 @@ app.get('/nbRestos', (req,res) => {
                 if (err) res.status(400).send(err)
                 else res.status(200).send(nbRestos.toString())
             })
+            client.close()
         }
-        client.close()
     })
 })
 
@@ -88,7 +91,6 @@ app.get('/noms/:specialite', (req,res) => {
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
             res.status(400).send(err)
-            client.close()
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
@@ -133,7 +135,6 @@ app.get('/noms/:quartier/:specialite', (req,res) => {
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
             res.status(400).send(err)
-            client.close()
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
@@ -183,38 +184,30 @@ app.get('/position', (req,res) => {
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
             res.status(400).send(err)
-            client.close()
         } else {
-            MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
-                if (err) {
-                    res.status(400).send(err)
-                    client.close()
+            let db = client.db('base')
+            let restos = db.collection('restos')
+            restos.findOne({
+                "address.coord":{
+                    $nearSphere:{
+                        $geometry: { type: "Point", coordinates :  [x, y] }, 
+                        $maxDistance: max
+                    }
+                }
+            }).then(result => {
+                client.close()
+                console.log(result)
+                if (!result) {
+                    res.status(204).send("Aucun résultat !") //TODO
                 } else {
-                    let db = client.db('base')
-                    let restos = db.collection('restos')
-                    restos.findOne({
-                        "address.coord":{
-                            $nearSphere:{
-                                $geometry: { type: "Point", coordinates :  [x, y] }, 
-                                $maxDistance: max
-                            }
-                        }
-                    }).then(result => {
-                        client.close()
-                        console.log(result)
-                        if (!result) {
-                            res.status(204).send("Aucun résultat !") //TODO
-                        } else {
-                            res.status(200).send(pug.renderFile('resto.pug', {
-                                name: result.name,
-                                address: result.address,
-                                specialite: result.cuisine,
-                                borough: result.borough,
-                                id: result.restaurant_id,
-                                grades: result.grades
-                            }))
-                        }
-                    })
+                    res.status(200).send(pug.renderFile('resto.pug', {
+                        name: result.name,
+                        address: result.address,
+                        specialite: result.cuisine,
+                        borough: result.borough,
+                        id: result.restaurant_id,
+                        grades: result.grades
+                    }))
                 }
             })
         }
