@@ -1,0 +1,36 @@
+doctype html
+html(lang='fr')
+    head
+        title Restaurants
+        meta(content='text/html', charset='utf-8')
+        script(src="https://code.jquery.com/jquery-3.4.1.js"
+            integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU="
+            crossorigin="anonymous")
+        script(src="/js/index.js")
+        link(href="/images/restaurant.png" rel="icon" type="image/png")
+    body
+        h1 Les restos de New York
+        p Nombre de restaurants dans la base : 
+            p#nbRestos
+        h2 Trouver un restaurant
+        label Spécialité 
+        select#specialite
+            each val in listSpecialites
+                option=val
+        label  Quartier 
+        select#quartier
+            option="-- optionnel --"
+            each val in listQuartiers
+                option=val
+        br
+        button(style='padding:5px; margin:20px', onclick="findRestaurant()") Trouver
+        br
+        h2 Trouver le restaurant le plus proche
+        label Latitude 
+        input#latitude
+        label  Longitude 
+        input#longitude
+        label  Distance maximale 
+        input#distanceMax(placeholder=distanceMax)
+        br
+        button(style='padding:5px; margin:20px', onclick="findFromPosition()") Trouver

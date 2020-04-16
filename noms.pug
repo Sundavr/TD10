@@ -1,0 +1,17 @@
+doctype html
+html(lang='fr')
+    head
+        title Restaurants
+        meta(content='text/html', charset='utf-8')
+        script(src="https://code.jquery.com/jquery-3.4.1.js"
+            integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU="
+            crossorigin="anonymous")
+        link(href="/images/restaurant.png" rel="icon" type="image/png")
+    body
+        if quartier
+            h1 #{count} restaurants avec comme spécialité #{specialite} trouvés dans #{quartier}
+        else
+            h1 #{count} restaurants avec comme spécialité #{specialite} trouvés
+        ul
+            each result in results
+                li= result.name + " : " + result.address.building + " " + result.address.street + " " + result.address.zipcode + " (" + result.borough + ")"

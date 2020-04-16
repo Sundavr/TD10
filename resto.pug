@@ -1,0 +1,16 @@
+doctype html
+html(lang='fr')
+    head
+        title Restaurants
+        meta(content='text/html', charset='utf-8')
+        link(href="/images/restaurant.png" rel="icon" type="image/png")
+    body
+        h1 Restaurant le plus proche:
+        p Nom : #{name}
+        p Adresse : #{address.building}  #{address.street}  #{address.zipcode} (#{borough})
+        p Spécialité(s) : #{specialite}
+        p ID : #{id}
+        p Notes :
+        ul
+            each grade in grades
+                li= "Grade " + grade.grade + " avec un score de " + grade.score + " le " + grade.date.toLocaleDateString()
