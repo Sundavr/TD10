@@ -169,7 +169,7 @@ app.get('/position', (req,res) => {
     let y = parseFloat(req.query.y)
     let max = parseFloat(req.query.max)
     if (!max || isNaN(max)) max = distanceMax
-    if (!x || isNaN(x) || !y || isNaN(y)) {
+    if ((x!=0 && !x) || isNaN(x) || (y!=0 && !y) || isNaN(y)) {
         sendError(res, "Désolé mais les coordonnées données sont incorrectes, veuillez réessayer !", 400)
         return;
     }
