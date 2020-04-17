@@ -8,6 +8,7 @@ html(lang='fr')
             crossorigin="anonymous")
         script(src="/js/index.js")
         link(href="/images/restaurant.png" rel="icon" type="image/png")
+        link(href="/css/index.css" type="text/css" rel="stylesheet")
     body
         h1 Les restos de New York
         p Nombre de restaurants dans la base : 
@@ -30,7 +31,7 @@ html(lang='fr')
         input#latitude
         label  Longitude 
         input#longitude
-        label  Distance maximale 
+        label  Distance maximale (m) 
         input#distanceMax(placeholder=distanceMax)
         br
         button(style='padding:5px; margin:20px', onclick="findFromPosition()") Trouver

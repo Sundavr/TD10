@@ -1,0 +1,20 @@
+doctype html
+html(lang='fr')
+    head
+        title Restaurants
+        meta(content='text/html', charset='utf-8')
+        script(src="https://code.jquery.com/jquery-3.4.1.js"
+            integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU="
+            crossorigin="anonymous")
+        script(src="/js/erreur.js")
+        link(href="/images/restaurant.png" rel="icon" type="image/png")
+        link(href="/css/erreur.css" type="text/css" rel="stylesheet")
+    body
+        img(src="/images/undo.png", alt="retour")#undo
+        div#errorPage
+            if (errorCode)
+                p Erreur #{errorCode}
+            if (errorMessage)
+                p #{errorMessage}
+            else
+                p Impossible de trouver la page que vous cherchez !

@@ -1,0 +1,17 @@
+#errorPage {
+    text-align: center;
+    font-size: 30px;
+    margin-top: 25vh;
+}
+
+#undo {
+    width: 10vh;
+}
+
+#undo:hover {
+    cursor: pointer;
+}
+
+body {
+    background-color: #EEEDE7;
+}

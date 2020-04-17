@@ -3,8 +3,8 @@ const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
 const app = express();
 const port = process.env.PORT || 5000
-//const mongoURI = "mongodb://127.0.0.1:8081" //en local
-const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
+const mongoURI = "mongodb://127.0.0.1:8081" //en local
+//const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
 const distanceMax = 500 //distance maximale par défaut pour chercher un restaurant
 let publicDir = __dirname + '/public' // rep contenant les fichiers
 
@@ -16,12 +16,13 @@ String.prototype.capitalize = function() {
     return this.charAt(0).toUpperCase() + this.slice(1);
 }
 
-function onlyUnique(value, index, self) { 
+function onlyUnique(value, index, self) {
     return self.indexOf(value) === index;
 }
 
 var listSpecialites = []
 var listQuartiers = []
+console.log("trying to connect to data base ...")
 MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
     console.log("loading ressources from the base ...")
     if (!err) {
@@ -62,12 +63,12 @@ app.all('/:var(index.html)?', (req,res) => {
 app.get('/nbRestos', (req,res) => {
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
-            res.status(400).send(err)
+            res.status(504).send("Impossible de joindre la base de données")
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
             restos.find().count((err, nbRestos) => {
-                if (err) res.status(400).send(err)
+                if (err) res.status(500).send("Impossible d'obtenir le nombre de restaurants")
                 else res.status(200).send(nbRestos.toString())
             })
             client.close()
@@ -77,11 +78,11 @@ app.get('/nbRestos', (req,res) => {
 
 app.get('/noms/:specialite', (req,res) => {
     console.log("nouvelle connexion de", req.hostname)
-    let specialite = req.params.specialite.split("-").map(v => v.toLowerCase().capitalize()).join(" ");;
+    let specialite = req.params.specialite.split("-").map(v => v.toLowerCase().capitalize()).join(" ")
     console.log("requete sur", specialite)
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
-            res.status(400).send(err)
+            DBError(res, err)
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
@@ -89,12 +90,12 @@ app.get('/noms/:specialite', (req,res) => {
             results.count((err, count) => {
                 console.log(count, "spécialités", specialite, "trouvées")
                 if(err) {
-                    res.status(400).send(err)
+                    sendError(res, "Impossible d'obtenir le nombre de restaurants trouvés", 500, err)
                 } else {
                     let resultsArray = Array()
                     results.each((err, item) => {
                         if (err) {
-                            res.status(400).send(err)
+                            sendError(res, "Impossible de parcourir les restaurants trouvés", 500, err)
                         } else {
                             if (item == null) { //last item
                                 client.close()
@@ -125,7 +126,7 @@ app.get('/noms/:quartier/:specialite', (req,res) => {
     console.log("requete sur", quartier, "/", specialite)
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
-            res.status(400).send(err)
+            DBError(res, err)
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
@@ -133,12 +134,12 @@ app.get('/noms/:quartier/:specialite', (req,res) => {
             results.count((err, count) => {
                 console.log(count, "spécialités", specialite, "trouvées dans", quartier)
                 if(err) {
-                    res.status(400).send(err)
+                    sendError(res, "Impossible d'obtenir le nombre de restaurants trouvés", 500, err)
                 } else {
                     let resultsArray = Array()
                     results.each((err, item) => {
                         if (err) {
-                            res.status(400).send(err)
+                            sendError(res, "Impossible de parcourir les restaurants trouvés", 500, err)
                         } else {
                             if (item == null) { //last item
                                 client.close()
@@ -169,12 +170,13 @@ app.get('/position', (req,res) => {
     let max = parseFloat(req.query.max)
     if (!max || isNaN(max)) max = distanceMax
     if (!x || isNaN(x) || !y || isNaN(y)) {
-        res.status(404).send("Page not found !") //TODO
+        sendError(res, "Désolé mais les coordonnées données sont incorrectes, veuillez réessayer !", 400)
         return;
     }
+    console.log("requete sur position (" + x + ", " + y + "), max =", max)
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
-            res.status(400).send(err)
+            DBError(res, err)
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
@@ -187,9 +189,8 @@ app.get('/position', (req,res) => {
                 }
             }).then(result => {
                 client.close()
-                console.log(result)
                 if (!result) {
-                    res.status(204).send("Aucun résultat !") //TODO
+                    sendError(res, "Désolé mais nous n'avons trouvé aucun restaurant dans les " + max + " mètres autour de votre position.")
                 } else {
                     res.status(200).send(pug.renderFile('resto.pug', {
                         name: result.name,
@@ -207,5 +208,23 @@ app.get('/position', (req,res) => {
 
 app.all('*', (req,res) => {
     console.log("invalid request")
-    res.status(404).send("Page not found !")
+    sendError(res, "", 404)
 })
+
+function DBError(res, err) {
+    sendError(res, "Toutes nos excuses mais il semblerait qu'un vilain cafard nous empêche d'accéder à la base de données :(", 504, err)
+}
+
+function sendError(res, message, code, err) {
+    if (code == undefined) {
+        res.status(200).send(pug.renderFile('erreur.pug', {
+            errorMessage: "Toutes nos excuses mais il semblerait qu'un vilain cafard nous empêche d'accéder à la base de données :("
+        }))
+    } else {
+        res.status(code).send(pug.renderFile('erreur.pug', {
+            errorCode : code,
+            errorMessage: message
+        }))
+    }
+    if (err) console.log(err)
+}

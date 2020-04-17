@@ -4,8 +4,9 @@ html(lang='fr')
         title Restaurants
         meta(content='text/html', charset='utf-8')
         link(href="/images/restaurant.png" rel="icon" type="image/png")
+        link(href="/css/resto.css" type="text/css" rel="stylesheet")
     body
-        h1 Restaurant le plus proche:
+        h1 Restaurant le plus proche :
         p Nom : #{name}
         p Adresse : #{address.building}  #{address.street}  #{address.zipcode} (#{borough})
         p Spécialité(s) : #{specialite}

@@ -42,8 +42,7 @@ function findFromPosition() {
 }
 
 function errorHandler(error) {
-    console.log(error)
     let res = error.responseJSON
-    if (res != undefined) alert(res.erreur) //json
-    else alert("error : " + error) //autre
+    if (res != undefined) console.log(res.erreur) //json
+    else console.log(error) //autre
 }
