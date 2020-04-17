@@ -3,7 +3,7 @@ const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
 const app = express();
 const port = process.env.PORT || 5000
-//const mongoURI = "mongodb://127.0.0.1:8081" //en local
+//const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
 const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
 const distanceMax = 500 //distance maximale par défaut pour chercher un restaurant
 let publicDir = __dirname + '/public' // rep contenant les fichiers
@@ -218,7 +218,7 @@ function DBError(res, err) {
 function sendError(res, message, code, err) {
     if (code == undefined) {
         res.status(200).send(pug.renderFile('erreur.pug', {
-            errorMessage: "Toutes nos excuses mais il semblerait qu'un vilain cafard nous empêche d'accéder à la base de données :("
+            errorMessage: message
         }))
     } else {
         res.status(code).send(pug.renderFile('erreur.pug', {
