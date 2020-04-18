@@ -3,9 +3,10 @@ const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
 const app = express();
 const port = process.env.PORT || 5000
-//const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
-const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
+const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
+//const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
 const distanceMax = 500 //distance maximale par défaut pour chercher un restaurant
+const maxItemsPerPage = 20 //nombre d'items par défaut par page
 let publicDir = __dirname + '/public' // rep contenant les fichiers
 
 app.set('port', (port))
@@ -76,46 +77,53 @@ app.get('/nbRestos', (req,res) => {
     })
 })
 
+function sendRestos(res, client, results, specialite, limit, quartier) {
+    results.count((err, nbResults) => {
+        console.log(nbResults, "spécialités", specialite, "trouvées")
+        if(err) {
+            sendError(res, "Impossible d'obtenir le nombre de restaurants trouvés", 500, err)
+        } else {
+            results.limit(limit).sort({"borough": 1, "name": 1}).count((err, count) => {
+                let resultsArray = Array()
+                results.each((err, item) => {
+                    if (err) {
+                        sendError(res, "Impossible de parcourir les restaurants trouvés", 500, err)
+                    } else {
+                        if (item == null) { //last item
+                            client.close()
+                            res.status(200).send(pug.renderFile('noms.pug', {
+                                count: count,
+                                specialite: specialite,
+                                quartier: quartier,
+                                results: resultsArray,
+                                limit: limit,
+                                nbResults: nbResults
+                            }))
+                        } else {
+                            resultsArray.push({
+                                name: item.name,
+                                address: item.address,
+                                borough: item.borough.toUpperCase()
+                            })
+                        }
+                    }
+                })
+            })
+        }
+    })
+}
+
 app.get('/noms/:specialite', (req,res) => {
-    console.log("nouvelle connexion de", req.hostname)
     let specialite = req.params.specialite.split("-").map(v => v.toLowerCase().capitalize()).join(" ")
     console.log("requete sur", specialite)
+    let limit = parseInt(req.query.limit)
+    if (!limit || isNaN(limit)) limit = maxItemsPerPage
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
             DBError(res, err)
         } else {
-            let db = client.db('base')
-            let restos = db.collection('restos')
-            let results = restos.find({cuisine:{$regex:".*"+specialite+".*"}}).sort({"borough": 1, "name": 1})
-            results.count((err, count) => {
-                console.log(count, "spécialités", specialite, "trouvées")
-                if(err) {
-                    sendError(res, "Impossible d'obtenir le nombre de restaurants trouvés", 500, err)
-                } else {
-                    let resultsArray = Array()
-                    results.each((err, item) => {
-                        if (err) {
-                            sendError(res, "Impossible de parcourir les restaurants trouvés", 500, err)
-                        } else {
-                            if (item == null) { //last item
-                                client.close()
-                                res.status(200).send(pug.renderFile('noms.pug', {
-                                    count: count,
-                                    specialite: specialite,
-                                    results: resultsArray
-                                }))
-                            } else {
-                                resultsArray.push({
-                                    name: item.name,
-                                    address: item.address,
-                                    borough: item.borough.toUpperCase()
-                                })
-                            }
-                        }
-                    })
-                }
-            })
-            
+            let restos = client.db('base').collection('restos')
+            sendRestos(res, client, restos.find({cuisine:{$regex:".*"+specialite+".*"}}), specialite, limit)
         }
     })
 })
@@ -124,42 +132,14 @@ app.get('/noms/:quartier/:specialite', (req,res) => {
     let quartier = req.params.quartier.split("-").map(v => v.toLowerCase().capitalize()).join(" ");
     let specialite = req.params.specialite.split("-").map(v => v.toLowerCase().capitalize()).join(" ");
     console.log("requete sur", quartier, "/", specialite)
+    let limit = parseInt(req.query.limit)
+    if (!limit || isNaN(limit)) limit = maxItemsPerPage
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
             DBError(res, err)
         } else {
-            let db = client.db('base')
-            let restos = db.collection('restos')
-            let results = restos.find({cuisine:{$regex:".*"+specialite+".*"}, borough:quartier}).sort({"borough": 1, "name": 1})
-            results.count((err, count) => {
-                console.log(count, "spécialités", specialite, "trouvées dans", quartier)
-                if(err) {
-                    sendError(res, "Impossible d'obtenir le nombre de restaurants trouvés", 500, err)
-                } else {
-                    let resultsArray = Array()
-                    results.each((err, item) => {
-                        if (err) {
-                            sendError(res, "Impossible de parcourir les restaurants trouvés", 500, err)
-                        } else {
-                            if (item == null) { //last item
-                                client.close()
-                                res.status(200).send(pug.renderFile('noms.pug', {
-                                    count: count,
-                                    specialite: specialite,
-                                    results: resultsArray,
-                                    quartier: quartier
-                                }))
-                            } else {
-                                resultsArray.push({
-                                    name: item.name,
-                                    address: item.address,
-                                    borough: item.borough.toUpperCase()
-                                })
-                            }
-                        }
-                    })
-                }
-            })
+            let restos = client.db('base').collection('restos')
+            sendRestos(res, client, restos.find({cuisine:{$regex:".*"+specialite+".*"}, borough:quartier}), specialite, limit, quartier)
         }
     })
 })
@@ -190,7 +170,7 @@ app.get('/position', (req,res) => {
             }).then(result => {
                 client.close()
                 if (!result) {
-                    sendError(res, "Désolé mais nous n'avons trouvé aucun restaurant dans les " + max + " mètres autour de votre position.")
+                    sendError(res, "Désolé mais nous n'avons trouvé aucun restaurant New Yorkais dans les " + max + " mètres autour de votre position.")
                 } else {
                     res.status(200).send(pug.renderFile('resto.pug', {
                         name: result.name,

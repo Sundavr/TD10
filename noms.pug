@@ -6,13 +6,22 @@ html(lang='fr')
         script(src="https://code.jquery.com/jquery-3.4.1.js"
             integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU="
             crossorigin="anonymous")
+        script(src="/js/noms.js")
         link(href="/images/restaurant.png" rel="icon" type="image/png")
         link(href="/css/noms.css" type="text/css" rel="stylesheet")
+        script.
+            limit='#{limit}'
+            count='#{count}'
+            nbResults='#{nbResults}'
     body
         if quartier
-            h1 #{count} restaurants avec comme spécialité #{specialite} trouvés dans #{quartier}
+            h1 #{nbResults} restaurants avec comme spécialité #{specialite} trouvés dans #{quartier}
         else
-            h1 #{count} restaurants avec comme spécialité #{specialite} trouvés
+            h1 #{nbResults} restaurants avec comme spécialité #{specialite} trouvés
         ul
             each result in results
                 li= result.name + " : " + result.address.building + " " + result.address.street + " " + result.address.zipcode + " (" + result.borough + ")"
+        button.showMore(onclick="showMore()") Afficher plus
+        input#incrementSize.showMore(placeholder="20", style="width:20px" onkeypress="this.style.width = ((this.value.length + 1) * 8) + 'px'")
+        label.showMore 
+        button.showMore(onclick="showAll()") Afficher tout

@@ -18,7 +18,7 @@ function findRestaurant() {
         if (quartier != '-- optionnel --') {
             URL += '/' + quartier.replace(" ","-")
         }
-        document.location.href = URL + '/' + specialite.replace(" ","-");
+        document.location.href = URL + '/' + specialite.replace(" ","-")
     }
 }
 
