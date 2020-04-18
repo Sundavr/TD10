@@ -5,14 +5,19 @@ $(function() {
 })
 
 function showMore(size) {
-    let incrementSize = isNaN($('#incrementSize').val()) || $('#incrementSize').val().length==0 ? +$('#incrementSize').attr('placeholder') : +$('#incrementSize').val()
+    let baseSize = +$('#incrementSize').attr('placeholder')
+    let incrementSize = isNaN($('#incrementSize').val()) || $('#incrementSize').val().length==0 ? baseSize : +$('#incrementSize').val()
     let parsedURL = window.location.href.split('limit=')
-    let params = [+$('#incrementSize').attr('placeholder')] //par défaut
+    let params = [baseSize] //par défaut
     if (parsedURL.length > 1)
         params = parsedURL[1].split('&')
     else
-        parsedURL[0] += "?"
-    if (!size) size = +params[0] + incrementSize
+        if (parsedURL[0].includes("?"))
+            parsedURL[0] = parsedURL[0].replace("limit","") + "&"
+        else
+            parsedURL[0] = parsedURL[0].replace("limit","") + "?"
+    if (!size) size = isNaN(params[0]) || params[0] < 1 ? baseSize + incrementSize : +params[0] + incrementSize
+    if (size > nbResults) size = nbResults
     if (params.length > 1)
         document.location.href = parsedURL[0] + 'limit=' + size + '&' + params.slice(1)
     else
