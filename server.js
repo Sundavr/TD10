@@ -3,8 +3,8 @@ const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
 const app = express();
 const port = process.env.PORT || 5000
-const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
-//const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
+//const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
+const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
 const distanceMax = 500 //distance maximale par défaut pour chercher un restaurant
 const maxItemsPerPage = 20 //nombre d'items par défaut par page
 let publicDir = __dirname + '/public' // rep contenant les fichiers
