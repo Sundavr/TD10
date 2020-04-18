@@ -1,10 +1,23 @@
+//const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
+const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
+const logLevel = 'debug' //trace,debug,info,warn,error,fatal
+const port = process.env.PORT || 5000
+
 const express = require('express')
 const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
 const app = express();
-const port = process.env.PORT || 5000
-//const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
-const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
+const log4js = require('log4js')
+log4js.configure({
+    appenders: {
+      console: {type: 'console', level: 'debug'},
+      file: {type: 'file', level: 'info', filename: 'logs/logs.log'},
+    },
+    categories: {
+      default: {appenders: ['console', 'file'], level: logLevel},
+    }
+})
+const logger = log4js.getLogger()
 const distanceMax = 500 //distance maximale par défaut pour chercher un restaurant
 const maxItemsPerPage = 20 //nombre d'items par défaut par page
 let publicDir = __dirname + '/public' // rep contenant les fichiers
@@ -23,9 +36,9 @@ function onlyUnique(value, index, self) {
 
 var listSpecialites = []
 var listQuartiers = []
-console.log("trying to connect to data base ...")
+logger.info('trying to connect to data base ...')
 MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
-    console.log("loading ressources from the base ...")
+    logger.info('loading ressources from the base ...')
     if (!err) {
         let db = client.db('base')
         let restos = db.collection('restos')
@@ -41,18 +54,22 @@ MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
                 listQuartiers = v
                 client.close()
                 app.listen(port, (err) => {
-                    if (!err) console.log('server is running on port', port)
-                    else console.log(err)
+                    if (!err) logger.info('server is running on port', port)
+                    else logger.fatal(err)
                 })
+            }).catch(err => {
+                logger.fatal(err)
             })
+        }).catch(err => {
+            logger.fatal(err)
         })
     } else {
-        console.log(err)
+        logger.fatal(err)
     }
 })
 
 app.all('/:var(index.html)?', (req,res) => {
-    console.log("nouvelle connexion de", req.hostname)
+    logger.debug('new connection from', req.hostname)
     res.status(200).send(pug.renderFile('index.pug', {
         name: req.hostname,
         listSpecialites: listSpecialites,
@@ -62,15 +79,21 @@ app.all('/:var(index.html)?', (req,res) => {
 })
 
 app.get('/nbRestos', (req,res) => {
+    logger.debug('new request on nbRestos')
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
-            res.status(504).send("Impossible de joindre la base de données")
+            res.status(504).send('Impossible de joindre la base de données')
+            logger.error(err)
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
             restos.find().count((err, nbRestos) => {
-                if (err) res.status(500).send("Impossible d'obtenir le nombre de restaurants")
-                else res.status(200).send(nbRestos.toString())
+                if (err) {
+                    res.status(500).send("Impossible d'obtenir le nombre de restaurants")
+                    logger.warn(err)
+                } else {
+                    res.status(200).send(nbRestos.toString())
+                }
             })
             client.close()
         }
@@ -79,15 +102,17 @@ app.get('/nbRestos', (req,res) => {
 
 function sendRestos(res, client, results, specialite, limit, quartier) {
     results.count((err, nbResults) => {
-        console.log(nbResults, "spécialités", specialite, "trouvées")
+        logger.debug(nbResults, 'specialities', specialite, 'find')
         if(err) {
             sendError(res, "Impossible d'obtenir le nombre de restaurants trouvés", 500, err)
+            logger.warn(err)
         } else {
             results.limit(limit).sort({"borough": 1, "name": 1}).count((err, count) => {
                 let resultsArray = Array()
                 results.each((err, item) => {
                     if (err) {
                         sendError(res, "Impossible de parcourir les restaurants trouvés", 500, err)
+                        logger.warn(err)
                     } else {
                         if (item == null) { //last item
                             client.close()
@@ -115,7 +140,7 @@ function sendRestos(res, client, results, specialite, limit, quartier) {
 
 app.get('/noms/:specialite', (req,res) => {
     let specialite = req.params.specialite.split("-").map(v => v.toLowerCase().capitalize()).join(" ")
-    console.log("requete sur", specialite)
+    logger.debug('request on', specialite)
     let limit = parseInt(req.query.limit)
     if (!limit || isNaN(limit)) limit = maxItemsPerPage
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
@@ -131,7 +156,7 @@ app.get('/noms/:specialite', (req,res) => {
 app.get('/noms/:quartier/:specialite', (req,res) => {
     let quartier = req.params.quartier.split("-").map(v => v.toLowerCase().capitalize()).join(" ");
     let specialite = req.params.specialite.split("-").map(v => v.toLowerCase().capitalize()).join(" ");
-    console.log("requete sur", quartier, "/", specialite)
+    logger.info('request on', quartier, '/', specialite)
     let limit = parseInt(req.query.limit)
     if (!limit || isNaN(limit)) limit = maxItemsPerPage
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
@@ -151,9 +176,10 @@ app.get('/position', (req,res) => {
     if (!max || isNaN(max)) max = distanceMax
     if ((x!=0 && !x) || isNaN(x) || (y!=0 && !y) || isNaN(y)) {
         sendError(res, "Désolé mais les coordonnées données sont incorrectes, veuillez réessayer !", 400)
+        logger.info('invalid coordinates : (', x, ',', y, ')')
         return;
     }
-    console.log("requete sur position (" + x + ", " + y + "), max =", max)
+    logger.debug('request on position (' + x + ', ' + y + '), max =', max)
     MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
         if (err) {
             DBError(res, err)
@@ -171,6 +197,7 @@ app.get('/position', (req,res) => {
                 client.close()
                 if (!result) {
                     sendError(res, "Désolé mais nous n'avons trouvé aucun restaurant New Yorkais dans les " + max + " mètres autour de votre position.")
+                    logger.debug('No restaurant find within', max, 'meters around [',x,',',y,']')
                 } else {
                     res.status(200).send(pug.renderFile('resto.pug', {
                         name: result.name,
@@ -181,18 +208,21 @@ app.get('/position', (req,res) => {
                         grades: result.grades
                     }))
                 }
+            }).catch(err => {
+                DBError(res, err)
             })
         }
     })
 })
 
 app.all('*', (req,res) => {
-    console.log("invalid request")
+    logger.info('invalid request :', req.path)
     sendError(res, "", 404)
 })
 
 function DBError(res, err) {
     sendError(res, "Toutes nos excuses mais il semblerait qu'un vilain cafard nous empêche d'accéder à la base de données :(", 504, err)
+    logger.error(err)
 }
 
 function sendError(res, message, code, err) {
@@ -206,5 +236,4 @@ function sendError(res, message, code, err) {
             errorMessage: message
         }))
     }
-    if (err) console.log(err)
 }
