@@ -1,8 +1,10 @@
-//const mongoURI = "mongodb://127.0.0.1:8081" //pour BDD locale
-const mongoURI = "mongodb+srv://Johan:johanDB@cluster0-jtcyb.gcp.mongodb.net/test?retryWrites=true&w=majority"
+require('dotenv').config()
+
+const mongoURI = process.env.DB_URI || process.env.DB_LOCAL || "mongodb://127.0.0.1:8081"
+//const mongoURI = "mongodb://127.0.0.1:8081" //pour forcer en local
+
 const logLevel = 'debug' //trace,debug,info,warn,error,fatal
 const port = process.env.PORT || 5000
-
 const express = require('express')
 const pug = require('pug')
 const MongoClient = require('mongodb').MongoClient
@@ -25,6 +27,8 @@ let publicDir = __dirname + '/public' // rep contenant les fichiers
 app.set('port', (port))
 app.use(express.static(publicDir))
 app.use('/noms', express.static(publicDir))
+
+console.log(process.env.TEST)
 
 String.prototype.capitalize = function() {
     return this.charAt(0).toUpperCase() + this.slice(1);
