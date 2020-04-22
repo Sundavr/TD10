@@ -28,8 +28,6 @@ app.set('port', (port))
 app.use(express.static(publicDir))
 app.use('/noms', express.static(publicDir))
 
-console.log(process.env.TEST)
-
 String.prototype.capitalize = function() {
     return this.charAt(0).toUpperCase() + this.slice(1);
 }
@@ -38,48 +36,43 @@ function onlyUnique(value, index, self) {
     return self.indexOf(value) === index;
 }
 
-var listSpecialites = []
-var listQuartiers = []
-logger.info('trying to connect to data base ...')
-MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
-    logger.info('loading ressources from the base ...')
-    if (!err) {
-        let db = client.db('base')
-        let restos = db.collection('restos')
-        restos.distinct('cuisine').then(v => {
-            let reg=/^[a-zàäâéèêëïîöôùüû\s]*$/i
-            listSpecialites = v.flatMap(spec => spec.replace(/ *\([^)]*\) */g, "")
-                                                    .split("/")
-                                                    .flatMap(spec2 => spec2.split(",")[0]))
-                                .filter(onlyUnique)
-                                .filter(spec => reg.test(spec))
-                                .sort()
-            restos.distinct('borough').then(v => {
-                listQuartiers = v
-                client.close()
-                app.listen(port, (err) => {
-                    if (!err) logger.info('server is running on port', port)
-                    else logger.fatal(err)
-                })
-            }).catch(err => {
-                logger.fatal(err)
-            })
-        }).catch(err => {
-            logger.fatal(err)
-        })
-    } else {
-        logger.fatal(err)
-    }
+app.listen(port, (err) => {
+    if (!err) logger.info('server is running on port', port)
+    else logger.fatal(err)
 })
 
 app.all('/:var(index.html)?', (req,res) => {
     logger.debug('new connection from', req.hostname)
-    res.status(200).send(pug.renderFile('index.pug', {
-        name: req.hostname,
-        listSpecialites: listSpecialites,
-        distanceMax: distanceMax,
-        listQuartiers: listQuartiers
-    }))
+    MongoClient.connect(mongoURI, {useUnifiedTopology: true,}, (err, client) => {
+        if (!err) {
+            let db = client.db('base')
+            let restos = db.collection('restos')
+            restos.distinct('cuisine').then(v => {
+                let reg=/^[a-zàäâéèêëïîöôùüû\s]*$/i
+                let listSpecialites = v.flatMap(spec => spec.replace(/ *\([^)]*\) */g, "")
+                                                        .split("/")
+                                                        .flatMap(spec2 => spec2.split(",")[0]))
+                                    .filter(onlyUnique)
+                                    .filter(spec => reg.test(spec))
+                                    .sort()
+                restos.distinct('borough').then(listQuartiers => {
+                    client.close()
+                    res.status(200).send(pug.renderFile('index.pug', {
+                        name: req.hostname,
+                        listSpecialites: listSpecialites,
+                        distanceMax: distanceMax,
+                        listQuartiers: listQuartiers
+                    }))
+                }).catch(err => {
+                    DBError(res, err)
+                })
+            }).catch(err => {
+                DBError(res, err)
+            })
+        } else {
+            DBError(res, err)
+        }
+    })
 })
 
 app.get('/nbRestos', (req,res) => {
@@ -91,14 +84,19 @@ app.get('/nbRestos', (req,res) => {
         } else {
             let db = client.db('base')
             let restos = db.collection('restos')
-            restos.find().count((err, nbRestos) => {
-                if (err) {
-                    res.status(500).send("Impossible d'obtenir le nombre de restaurants")
-                    logger.warn(err)
-                } else {
-                    res.status(200).send(nbRestos.toString())
-                }
-            })
+            try {
+                restos.find().count((err, nbRestos) => {
+                    if (err) {
+                        res.status(500).send("Impossible d'obtenir le nombre de restaurants")
+                        logger.warn(err)
+                    } else {
+                        res.status(200).send(nbRestos.toString())
+                    }
+                })
+            } catch (err) {
+                res.status(500).send("Impossible d'obtenir le nombre de restaurants")
+                logger.warn(err)
+            }
             client.close()
         }
     })
@@ -151,8 +149,12 @@ app.get('/noms/:specialite', (req,res) => {
         if (err) {
             DBError(res, err)
         } else {
-            let restos = client.db('base').collection('restos')
-            sendRestos(res, client, restos.find({cuisine:{$regex:".*"+specialite+".*"}}), specialite, limit)
+            try {
+                let restos = client.db('base').collection('restos')
+                sendRestos(res, client, restos.find({cuisine:{$regex:".*"+specialite+".*"}}), specialite, limit)
+            } catch (err) {
+                DBError(err)
+            }
         }
     })
 })
@@ -167,8 +169,12 @@ app.get('/noms/:quartier/:specialite', (req,res) => {
         if (err) {
             DBError(res, err)
         } else {
-            let restos = client.db('base').collection('restos')
-            sendRestos(res, client, restos.find({cuisine:{$regex:".*"+specialite+".*"}, borough:quartier}), specialite, limit, quartier)
+            try {
+                let restos = client.db('base').collection('restos')
+                sendRestos(res, client, restos.find({cuisine:{$regex:".*"+specialite+".*"}, borough:quartier}), specialite, limit, quartier)
+            } catch (err) {
+                DBError(err)
+            }
         }
     })
 })
